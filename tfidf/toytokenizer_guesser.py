@@ -20,6 +20,8 @@ from nltk import FreqDist
 
 from guesser import Guesser, kTOY_DATA
 
+# nltk pandas scikit-learn numpy 
+
 kUNK = "<UNK>"
 kEND_STRING = "<ENDOFTEXT>"
 
@@ -78,7 +80,11 @@ class Vocab:
         assert token_string is not None, "Vocab lookup failed for %i" % token
         result.append(token_string)
       return separator.join(result)
+<<<<<<< HEAD
                 
+=======
+    
+>>>>>>> 6c1dff9 (tfidf)
     def __contains__(self, candidate: Union[int, str]) -> bool:
         """
         Check to see if something is part of the mapping
@@ -229,8 +235,9 @@ class ToyTokenizerGuesser(Guesser):
 
         self.initialize_vocabulary()
 
-        self._docs = None
+        self._docs = [] # im using to store term freq for ever document
         self._labels = []
+        # self._merges = [] 
 
         # Add your code here if you need to!
 
@@ -256,12 +263,42 @@ class ToyTokenizerGuesser(Guesser):
         Returns:
             The tuple of byte pairs that is most frequent in the input
         """
+        # got too messy used counter instead like hint says
+        # max_freq = 0
+        # best_big_holder  = []
+        # # Complete this function!
+        # for tok_ctr in range(len(token_ids)-2):
+        #     w1 = token_ids[tok_ctr]
+        #     w2 = token_ids[tok_ctr+1]
+        #     freq = 1
+        #     for tok_fdr in range(tok_ctr+1, len(token_ids)-2):
+        #         fw1 = token_ids[tok_fdr]
+        #         fw2 = token_ids[tok_fdr+1]
+        #         if (w1 == fw1) and (w2 == fw2):
+        #             freq +=1  
+        #     if freq > max_freq :
+        #         best_big_holder = [(w1,w2)]
+        #         max_freq = freq
+        #     elif freq == max_freq:
+        #         best_big_holder.append((w1,w2))
+        # sorted_bbh = sorted(best_big_holder)
 
-        # Complete this function!
-        
-        
+        # if max_freq < min_frequency:
+        #     return None
+        # else:
+        #     return sorted_bbh[0]
 
-        return None
+        counter = Counter()
+        for tok_ctr in range(len(token_ids)-1):
+            pair = (token_ids[tok_ctr], token_ids[tok_ctr+1])
+            if self._end_id not in pair:        # needed this to pass test
+                counter[pair] += 1
+
+        if not counter:
+            return None
+        # counter.items() gives (pair, freq of pair)  im learning to be pythonic :)
+        best_pair, freq = sorted(counter.items(), key=lambda pf: (-pf[1], pf[0][0], pf[0][1]))[0]
+        return best_pair if freq >= min_frequency else None
 
     @staticmethod
     def merge_tokens(tokens: Iterable[int], merge_left: int, merge_right: int, merge_id: int) -> Iterable[int]:
@@ -278,6 +315,14 @@ class ToyTokenizerGuesser(Guesser):
         Returns:
             A sequence of integers where all of the (merge_left, merge_right) instances have been replaced by merge_id
         """
+
+        for tok_ctr in range(len(tokens)-2, -1, -1): # moving backwards so dont care about going out of bounds
+            w1 = tokens[tok_ctr]
+            w2 = tokens[tok_ctr+1]
+            if (w1 == merge_left) and (w2 == merge_right):
+                tokens[tok_ctr] = merge_id
+                del tokens[tok_ctr+1]
+
         replaced = tokens
 
         # Complete this function!
@@ -303,21 +348,113 @@ class ToyTokenizerGuesser(Guesser):
         #Complete this function!
         
         frequency = FreqDist()
-        for question in (progress := tqdm(self.questions)):
-            # This will create a whitespace vocab, but you should remove and replace
-            # this code
-            for word in self.whitespace_tokenize(question):
-                 frequency[word] += 1
-            progress.set_description("Creating initial vocabulary")
+
+        # self._labels = []
+        all_tokens = [self.initial_tokenize(q) for q in self.questions]
+        # while (big := self.frequent_bigram(all_tokens)) != None:
+        #     (t1, t2) = big
+        #     tok1 = self._vocab.lookup_word(t1)
+        #     tok2 = self._vocab.lookup_word(t2)
+        #     # bytestream = [t1,t2]
+        #     merge_word = ''+tok1+tok2
+        #     merge_idx = self._vocab.add(merge_word)
+        #     self._labels.append((t1, t2, merge_idx))
+        #     all_tokens = self.merge_tokens(all_tokens, t1, t2, merge_idx)
+
+        # # adding frequency for every word
+        # for idx, word in self._vocab.__iter__():
+        #     for tok in all_tokens:
+        #         if tok == idx:
+        #             frequency[idx] += 1
+
+
+
+        # fuck ass counter rewrite 
+        while len(self._vocab) < self._max_vocab_size:
+
+            counter = Counter()
+
+            for question in all_tokens:
+                for tok_ctr in range(len(question) - 1):
+                    pair = (question[tok_ctr], question[tok_ctr+1])
+                    if self._end_id not in pair:
+                        counter[pair] += 1
+
+
+            (t1, t2), freq = sorted(counter.items(), key=lambda kv: (-kv[1], kv[0][0], kv[0][1]))[0]
+
+            if freq < 2:
+                break  
+            
+            # self.frequent_bigram() ngl idk how to get in cuz ran into issue that previous code had
+            # where would only count one doc at a time and then forget shit but yeah kinda copy pasted
+            # it over from frequent bigram but with the ability to read several at a time unless the 
+            # solution was to just join all of the documents into one gigga document but i feel like 
+            # that would add some extra unwanted pairs whifh i think is kinda iffy. 
+
+            # tldr basically the belwo code is the actual train code
+            
+            tok1 = self._vocab.lookup_word(t1)
+            tok2 = self._vocab.lookup_word(t2)
+            # bytestream = [t1,t2]
+            merge_word = ''+tok1+tok2
+            merge_idx = self._vocab.add(merge_word)
+            self._labels.append((t1, t2, merge_idx))
+
+            for i, seq in enumerate(all_tokens):
+                all_tokens[i] = self.merge_tokens(seq, t1, t2, merge_idx)
+
+
+
+
+
+        # for question in (progress := tqdm(self.questions)):
+        #     # This will create a whitespace vocab, but you should remove and replace
+        #     # this code
+        #     # for word in self.whitespace_tokenize(question):
+        #     init_toks = self.initial_tokenize(question)
+
+        #     # vocabing every byte (already done in vocab apparently)
+        #     # for tok in init_toks:
+        #     #     if not self._vocab.__contains__(tok):
+        #     #          self._vocab.add(  tok)
+            
+        #     # turning byte stream
+        #     # vocabing every bpe
+        #     while (big := self.frequent_bigram(init_toks)) != None:
+        #         (t1, t2) = big
+        #         tok1 = self._vocab.lookup_word(t1)
+        #         tok2 = self._vocab.lookup_word(t2)
+        #         # bytestream = [t1,t2]
+        #         merge_word = ''+tok1+tok2
+        #         merge_idx = self._vocab.add(merge_word)
+        #         self._labels.append((t1, t2, merge_idx))
+        #         init_toks = self.merge_tokens(init_toks, t1, t2, merge_idx)
+
+        #     # adding frequency for every word
+        #     for idx, word in self._vocab.__iter__():
+        #         for tok in init_toks:
+        #             if tok == idx:
+        #                 frequency[idx] += 1
+        #         #  if not self._vocab.__contains__(tok):
+        #         #      self._vocab.add(tok)
+
+        #     ## pre bpe code
+        #     # for word in self.initial_tokenize(question):
+        #     #      frequency[word] += 1
+        #     #      if not self._vocab.__contains__(word):
+        #     #          self._vocab.add(word)
+        #     # progress.set_description("Creating initial vocabulary")
+            
             
 
 
-        # This code stub is here just so it will work before you
-        # implement BPE training, remove it when you do.
-        current_vocab_size = len(self._vocab)
-        if current_vocab_size < 260:
-            for word in frequency.most_common(self._max_vocab_size - current_vocab_size):
-                self._vocab.add(word)
+        # # This code stub is here just so it will work before you
+        # # implement BPE training, remove it when you do.
+        # current_vocab_size = len(self._vocab)
+        # if current_vocab_size < 260:
+        #     for word in frequency.most_common(self._max_vocab_size - current_vocab_size):
+        #         self._vocab.add(word)
             
         self._vocab.finalize()
         assert len(self._vocab) < self._max_vocab_size
@@ -376,8 +513,21 @@ class ToyTokenizerGuesser(Guesser):
         question_tfidf = self.embed(question).reshape(1, -1)
 
         # This code is wrong, you need to fix it!  You'll want to use "argmax" and perhapse "reshape"
-        best = 0
-        cosine = np.zeros(5)
+        
+        # best = 0
+        # cosine = np.zeros(5)
+        
+        cosine = cosine_similarity(question_tfidf, self._doc_vectors).reshape(-1,1)
+        best = np.argmax(cosine)
+        # print(cosine.shape)
+
+        
+        # best = 
+        # for row_id in range(len(self._doc_vectors)):  
+        #     sim = cosine_similarity(question_tfidf, self._doc_vectors)
+        #     maxsim = np.argmax
+        #     # dot = self._doc_vectors[row_id] 
+        #     self._doc_vectors[row_id] = self.embed(question)  
         
         return [{"question": self.questions[best],
                  "guess": self.answers[best],
@@ -404,10 +554,17 @@ class ToyTokenizerGuesser(Guesser):
         if len(tokenized) == 0:
             logging.warning("Empty doc: %30s, tokenize: %30s, vocab: %30s" % (text, str(tokenized), " ".join(self._vocab.examples(5))))
 
+        # adding term frequency of document to self._docs
+        fdist = FreqDist()
+        for tok in tokenized:
+            fdist[tok] += 1
+
+        self._docs.append(fdist)
+
         self._total_docs += 1
 
         return self._total_docs
-        
+            
     def embed(self, text: str) -> npt.NDArray[np.float64]:
         """
         Given a document, create a vector representation of its tfidf
@@ -480,7 +637,7 @@ class ToyTokenizerGuesser(Guesser):
     def tokenize(self, sent: str) -> Iterable[int]:
         """
         Return a generator over tokens in the sentence and add the
-        "END OF STRING" token, <|ENDOFTEXT|> token id to the end of the
+        "END OF STRING" token, <|ENDOFTEXT|> token id  (ENDOFTEXT) (self._end_id) to the end of the
         string.
 
         Args:
@@ -491,9 +648,50 @@ class ToyTokenizerGuesser(Guesser):
         assert self._vocab.final
         token_ids = self.initial_tokenize(sent)
 
+        # You'll probably need to add something here to handle what happens when you merge BPEs and when you scan documents.
+        # they fucking say blo this was way too unclear :sob: i work with the variables given
+        # but repurposed whatever tf  lables was supposed to be to handle merges...
+
+        # print('og',token_ids)
+
         # Finish this function!
+<<<<<<< HEAD
 
         return self.whitespace_tokenize(sent)
+=======
+        # while (big := self.frequent_bigram(token_ids)) != None:
+        #     (w1, w2) = big
+        #     word1 = self._vocab.lookup_word(w1)
+        #     word2 = self._vocab.lookup_word(w2)
+        #     merge_word = ''+word1+word2
+        #     merge_idx = self._vocab.add(merge_word)
+        #     token_ids = self.merge_tokens(token_ids, w1, w2, merge_idx)
+
+        # ngl i think doing train before tokenize is much more valid cuz the said ordering fucked me upppp
+        # needed to see train to have the foresight to create self.labels as the tokenizer way
+        # using self.labels makes it so much sinpler :soB:
+        for left, right, new_id in self._labels:
+            token_ids = self.merge_tokens(token_ids, left, right, new_id)
+            # print('@@@@',left,right)
+        # for idx, word in self._vocab.__iter__():
+        #         tok_ctr = 0
+        #         while tok_ctr < len(token_ids) - 2: ## 2 should work???
+        #         # for tok_ctr in range(len(token_ids)-2 - ctr_minus): #-2 cuz of endofstring tok at end
+        #             w1 = token_ids[tok_ctr]
+        #             w2 = token_ids[tok_ctr+1]
+        #             word1 = self._vocab.lookup_word(w1)
+        #             word2 = self._vocab.lookup_word(w2)
+        #             mergeword = '' +word1+word2
+        #             if mergeword == word:
+        #                 token_ids[tok_ctr] = idx
+        #                 del token_ids[tok_ctr+1] 
+        #             else:
+        #                 tok_ctr += 1
+
+        # print('post',token_ids)
+        # return self.whitespace_tokenize(sent)
+        return token_ids
+>>>>>>> 6c1dff9 (tfidf)
         
 
     def inv_docfreq(self, word: int) -> float:
@@ -507,8 +705,17 @@ class ToyTokenizerGuesser(Guesser):
         """
         assert self._docs_final, "Documents must be finalized"
 
-        return 1.0
-        
+        doc_cnt = 0
+
+        for doc in self._docs:
+            if word in doc:
+                doc_cnt += 1
+
+        if doc_cnt == 0:
+            return 1.0
+        else:
+            return log(self._total_docs / doc_cnt, 10)
+            # return log(self._total_docs / (doc_cnt +1), 10)
 
 if __name__ == "__main__":
     # Load a tf-idf guesser and run it on some questions
