@@ -159,9 +159,17 @@ class ToyLogisticBuzzer(Buzzer):
         """
         mu = self._mu
         step = self._step
-        beta = self._beta
-        
+        beta = self._beta       # self._beta = np.zeros(num_features)
 
+        # stolen from progress method
+        p = sigmoid(self._beta.dot(train_example.x))
+            # if ii.y == 1:
+            #     logprob += log(p)
+
+        beta = beta + step * ((train_example.y - p) * train_example.x)
+        # beta = beta + step * ((train_example.y - p) * train_example.x - 2*.75 *beta )
+        
+        self._beta = beta
 
 
 
@@ -196,7 +204,7 @@ class ToyLogisticBuzzer(Buzzer):
             logging.info("Feat %35s %3i: %+0.5f" %
                          (vocab[idx], idx, self._beta[idx]))
     
-    return top, bottom
+        return top, bottom
 
     
     def train(self, train = None, test = None, vocab=None, passes=1):
