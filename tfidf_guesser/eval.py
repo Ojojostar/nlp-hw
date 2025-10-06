@@ -6,6 +6,8 @@ import random
 import string
 
 from tqdm import tqdm
+import nltk
+nltk.download('stopwords')
 
 from params import load_guesser, load_questions, load_buzzer, \
     add_buzzer_params, add_guesser_params, add_general_params,\
@@ -81,13 +83,27 @@ def eval_retrieval(guesser, questions, n_guesses=25, cutoff=-1):
 
     all_guesses = guesser.batch_guess(question_text, n_guesses)
     assert len(all_guesses) == len(question_text)
-    for question, guesses, text in zip(questions, all_guesses, question_text):
+    # print("ASSGUESS",all_guesses)
+    # for question, guesses, text in zip(questions, all_guesses, question_text):
+    for index, (question, guesses, text) in enumerate(zip(questions, all_guesses, question_text)):
         if len(guesses) > n_guesses:
             logging.warn("Warning: guesser is not obeying n_guesses argument")
             guesses = guesses[:n_guesses]
-            
+
+        guesses = sorted(guesses, key=lambda g: g["confidence"], reverse=True)
+        print("ASSGUESS",guesses,'\n')
+        print("QUESTIONS", text)
+        print("sizer", len(guesses))
         top_guess = guesses[0]["guess"]
+        # top_guess = guesses[index]["guess"]
+        # top_guess = guesses[index% n_guesses]["guess"]
+        
+        print("top GUESSERERWERERSE", top_guess, )
+        print('break', len(all_guesses))
+        print('nguesss', n_guesses)
+        print('index', index)
         answer = question["page"]
+        print("ANSER", answer)
 
         example = {"text": text, "guess": top_guess, "answer": answer, "id": question["qanta_id"]}
 

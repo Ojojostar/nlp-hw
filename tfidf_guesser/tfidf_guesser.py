@@ -14,6 +14,7 @@ from tqdm import tqdm
 
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 MODEL_PATH = 'tfidf.pickle'
 INDEX_PATH = 'index.pickle'
@@ -59,7 +60,9 @@ class TfidfGuesser(Guesser):
         """
 
         # You'll need add the vectorizer here and replace this fake vectorizer
-        self.tfidf_vectorizer = DummyVectorizer()
+        # self.tfidf_vectorizer = DummyVectorizer()
+        self.tfidf_vectorizer = TfidfVectorizer(stop_words='english', min_df=min_df, max_df=max_df, 
+                                                 sublinear_tf=True,strip_accents="unicode")
         self.tfidf = None 
         self.questions = None
         self.answers = None
@@ -78,7 +81,8 @@ class TfidfGuesser(Guesser):
         Guesser.train(self, training_data, answer_field, split_by_sentence, min_length,
                       max_length, remove_missing_pages)
 
-        self.tfidf = self.tfidf_vectorizer.transform(self.questions)
+        self.tfidf = self.tfidf_vectorizer.fit_transform(self.questions)
+        # self.tfidf = self.tfidf_vectorizer.transform(self.questions)
         logging.info("Creating tf-idf dataframe with %i" % len(self.questions))
         
     def save(self):
@@ -94,7 +98,7 @@ class TfidfGuesser(Guesser):
         with open("%s.tfidf.pkl" % path, 'wb') as f:
             pickle.dump(self.tfidf, f)
 
-    def __call__(self, question, max_n_guesses):
+    def __call__(self, question, max_n_guesses = 2):
         """
         Given the text of questions, generate guesses (a list of both both the page id and score) for each one.
 
@@ -109,13 +113,17 @@ class TfidfGuesser(Guesser):
         # Compute the cosine similarity
         question_tfidf = self.tfidf_vectorizer.transform([question])
         cosine_similarities = cosine_similarity(question_tfidf, self.tfidf)
+        print("SDFSDFSDFSDFSDFSDFSDFSDFF")
+        print(cosine_similarities)
         cos = cosine_similarities[0]
+        print(cos)
         indices = cos.argsort()[::-1]
+        print(indices)
         guesses = []
         for i in range(max_n_guesses):
             # The line below is wrong but lets the code run for the homework.
             # Remove it or fix it!
-            idx = i
+            idx = indices[i]
             guess =  {"question": self.questions[idx], "guess": self.answers[idx],
                       "confidence": cos[idx]}
             guesses.append(guess)
@@ -165,13 +173,28 @@ class TfidfGuesser(Guesser):
             block = questions[start:stop]
             logging.info("Block %i to %i (%i elements)" % (start, stop, len(block)))
             
-            
+            block_tfidf = self.tfidf_vectorizer.transform(block)
 
+            cosine_similarities = cosine_similarity(block_tfidf, self.tfidf)
+            
+            
             for question in range(len(block)):
+                cos = cosine_similarities[question]
+                if max_n_guesses < len(cos):
+                  # Get indices of top max_n_guesses elements
+                  top_indices = np.argpartition(cos, -max_n_guesses)[-max_n_guesses:]
+                  # Sort these top indices by their scores
+                  top_indices = top_indices[np.argsort(cos[top_indices])[::-1]]
+                else:
+                    # If requesting more guesses than documents, just sort all
+                    top_indices = np.argsort(cos)[::-1][:max_n_guesses]
+
+                # indices = cos.argsort()[::-1]
                 guesses = []
-                for idx in list(top_hits[question]):
+                # for idx in list(top_hits[question]):
+                for idx in top_indices:
                     score = 0.0
-                    guesses.append({"guess": self.answers[idx], "confidence": score, "question": self.questions[idx]})
+                    guesses.append({"guess": self.answers[idx], "confidence": cos[idx], "question": self.questions[idx]})
                 all_guesses.append(guesses)
 
         assert len(all_guesses) == len(questions), "Guesses (%i) != questions (%i)" % (len(all_guesses), len(questions))
@@ -211,3 +234,13 @@ if __name__ == "__main__":
     for qq, gg in zip(questions, guesses):
         print("----------------------")
         print(qq, gg)
+
+
+'''
+python guesser.py --guesser_type=Tfidf  --question_source=gzjson  --questions=../data/qanta.guesstrain.json.gz  --logging_file=guesser.log  --limit=500
+
+python eval.py --evaluate=guesser --question_source=gzjson  --questions=../data/qanta.guessdev.json.gz --limit=25
+
+python eval.py --guesser_type=Gpr   --questions=../data/qanta.buzztrain.json.gz --evaluate=guesser  --GprGuesser_filename=../models/buzztrain_gpr_cache --limit=25 
+
+'''
