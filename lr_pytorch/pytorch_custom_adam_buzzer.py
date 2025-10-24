@@ -57,16 +57,20 @@ def create_feature_matrix_sklearn(train_data, test_data=None):
     # -----------------------------------------------------------
     # Implement: Fit a vectorizer on training data into a  sparse matrix
     # -----------------------------------------------------------
-    vectorizer   = None
-    X_train = None
+    vectorizer   = DictVectorizer(sparse=True)
+    X_train = vectorizer.fit_transform(train_dicts)
 
-    # Implement: Convert to Dense for PyTorch
+    # Implement: Convert to Dense for PyTorch00
+    X_train = X_train.toarray()             # turns dense
+    X_train = X_train.astype(np.float32)    # turns for pytorch
 
     # -----------------------------------------------------------
     # Add the same data processing for test data if it exists
     # -----------------------------------------------------------
     if test_data:
-        X_test, y_test = None, None
+        test_dicts  = [ex.raw_features for ex in test_data]
+        x_tester = vectorizer.transform(test_dicts)
+        X_test, y_test = x_tester.toarray().astype(np.float32), np.array([ex.y for ex in test_data], dtype=np.float32)
     else:
         X_test, y_test = None, None
 
@@ -83,7 +87,8 @@ class SimpleLogreg(nn.Module):
         '''
         TODOs: Implement a single linear layer with the number of features passed in the parameter.
         '''
-        self.linear = None
+        # self.linear = None
+        self.linear = nn.Linear(num_features, 1)
         # Initialize weights to zero for consistency with original implementation
         nn.init.zeros_(self.linear.weight)
         nn.init.zeros_(self.linear.bias)
@@ -92,8 +97,9 @@ class SimpleLogreg(nn.Module):
         '''
         TODOs: Implement forward pass with softmax/sigmoid activation function
         '''
-
-        return None
+        x  = nn.functional.sigmoid(self.linear(x))
+        # return None
+        return x
 
 
 class CustomAdamOptimizer:
@@ -129,6 +135,10 @@ class CustomAdamOptimizer:
         '''
         TODOs: Set gradients of all parameters to zero
         '''
+        for param in self.params:
+            if param.grad is not None:
+                param.grad.detach_()
+                param.grad.zero_()
         pass
     
     def step(self):
@@ -145,7 +155,10 @@ class CustomAdamOptimizer:
             ''' 
             TODOs: Add weight decay (L2 regularization)
             '''
-            grad = None
+            # grad = None
+            grad = grad.add(self.weight_decay * param.data)
+            
+
 
             # Get state variables
             exp_avg = state['exp_avg']      # m_t
@@ -159,7 +172,7 @@ class CustomAdamOptimizer:
             TODOs: 
             
             1. Update biased first moment estimate: m_t = β₁ * m_{t-1} + (1 - β₁) * g_t
-
+            exp_avg = 
             2. Update biased second raw moment estimate: v_t = β₂ * v_{t-1} + (1 - β₂) * g_t²
 
             3. Compute bias-corrected first moment estimate: m̂_t = m_t / (1 - β₁ᵗ)
@@ -170,6 +183,23 @@ class CustomAdamOptimizer:
 
             6. Update parameters: θ_t = θ_{t-1} - α_t * m̂_t / (√v̂_t + ε)
             '''
+            # 1. Update biased first moment estimate: m_t = β₁ * m_{t-1} + (1 - β₁) * g_t
+            exp_avg = self.beta1 * exp_avg + (1-self.beta1) * grad
+            # 2. Update biased second raw moment estimate: v_t = β₂ * v_{t-1} + (1 - β₂) * g_t²
+            exp_avg_sq = self.beta2 * exp_avg_sq + (1 - self.beta2) * grad ** 2
+            # 3. Compute bias-corrected first moment estimate: m̂_t = m_t / (1 - β₁ᵗ)
+            exp_avg = exp_avg / ( 1 - self.beta1**step)
+            # 4. Compute bias-corrected second raw moment estimate: v̂_t = v_t / (1 - β₂ᵗ)
+            exp_avg_sq = exp_avg_sq  / (1 - self.beta2**step)
+            # 5. Compute step size: α_t = α * √(1 - β₂ᵗ) / (1 - β₁ᵗ)
+            step_size  = self.lr * ((1 - self.beta2 ** step)**.5) / (1 - self.beta1** step)
+            # step_size=self.lr 
+            # 6. Update parameters: θ_t = θ_{t-1} - α_t * m̂_t / (√v̂_t + ε)
+            # param.data = param.data  - step_size * exp_avg / (exp_avg_sq**.5 + self.eps)
+            param.data.addcdiv_(exp_avg, exp_avg_sq.sqrt().add_(self.eps), value = -step_size)
+            state['exp_avg']  = exp_avg
+            state['exp_avg_sq']  = exp_avg_sq
+
 
 
 class Example:
