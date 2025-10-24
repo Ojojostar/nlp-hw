@@ -181,7 +181,7 @@ class CustomAdamOptimizer:
 
             5. Compute step size: α_t = α * √(1 - β₂ᵗ) / (1 - β₁ᵗ)
 
-            6. Update parameters: θ_t = θ_{t-1} - α_t * m̂_t / (√v̂_t + ε)
+            6. Update parameters: θ_t = θ_{t-1} - α_t * m_t / (√v_t + ε)
             '''
             # 1. Update biased first moment estimate: m_t = β₁ * m_{t-1} + (1 - β₁) * g_t
             exp_avg = self.beta1 * exp_avg + (1-self.beta1) * grad
