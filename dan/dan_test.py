@@ -237,8 +237,13 @@ class DanTest(unittest.TestCase):
     def testEmbeddingNetwork(self):
         embeddings = self.mr_dan.dan_model.embeddings(self.documents)
         average = self.mr_dan.dan_model.average(embeddings, self.length)
+        # print('$###############################################################embed')
+        # print(embeddings)
+        # print(average)
         representation = self.mr_dan.dan_model.network(average)
-
+        # print('$###############################################################')
+        # print(representation)
+        # print('$###############################################################')
         reference = [([+1.0, +1.0], "currency england"),
                      ([-1.0, +1.0], "currency russia"),                     
                      ([-1.0, -1.0], "capital russia"),
@@ -261,6 +266,11 @@ class DanTest(unittest.TestCase):
        
         embeddings = self.mr_dan.dan_model.embeddings(self.documents)
         average = self.mr_dan.dan_model.average(embeddings, self.length)
+        
+        print('$###############################################################embed')
+        print(embeddings)
+        print('$###############################################################avg')
+        print(average)
 
         for row, expected in enumerate(reference):
             expected_vector, text = expected

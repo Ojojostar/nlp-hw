@@ -265,7 +265,12 @@ class DanModel(nn.Module):
         # TODOs: Implement the network structure        
         # self.network = None
         #### Your code here
-        self.network = None
+        self.network = nn.Sequential(
+            self.linear1, 
+            activation,
+            nn.Dropout(p= self.nn_dropout),
+            self.linear2
+        )
 
         # To make this work on CUDA, you need to move it to the appropriate
         # device
@@ -295,11 +300,17 @@ class DanModel(nn.Module):
         text_len: the corresponding number of words [1 x Nd]
         """
         average = torch.zeros(text_embeddings.size()[0], text_embeddings.size()[-1])
+        # print(text_len)
+        # print(average)
+        # print(text_len)
         # TODOs: Implement the averaging function for the embeddings. Sum along
         # the sequence dimension and divide by length
-        
+        # print(text_embeddings)
         for i in range(text_embeddings.size()[0]):
             # Sum embeddings along the sequence dimension and divide by length
+            seq_sum = torch.sum(text_embeddings[i], dim=0)
+            # print(seq_sum)
+            average[i] = seq_sum / text_len[0]
             pass
 
         return average
@@ -316,9 +327,9 @@ class DanModel(nn.Module):
         # TODOs: Implement the forward function. 
         
     
-        embeddings = None
-        averaged = None
-        representation = None
+        embeddings = self.embeddings(input_text)
+        averaged = self.average(embeddings, text_len)
+        representation = self.network(averaged)
 
         return representation
 
@@ -565,9 +576,11 @@ class QuestionData(Dataset):
 
         assert vocab is not None, "Vocab not initialized"
         
-        vec_text = None
+        tokenized = tokenizer(ex)
+        # vec_text = [vocab.__getitem__(voc)  for voc in tokenized]
+        vec_text = [vocab[voc]  for voc in tokenized]
 
-        return vec_text
+        return torch.tensor([vec_text], dtype=torch.long)
 
     ###You don't need to change this funtion
     def __len__(self):
